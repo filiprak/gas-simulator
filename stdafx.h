@@ -16,6 +16,16 @@
 #include <malloc.h>
 #include <memory.h>
 #include <tchar.h>
+#include <shellapi.h>
 
 
 // TODO: reference additional headers your program requires here
+#include "glm\glm.hpp"
+#include <math.h>
+#include <time.h>
+
+#include "gas_model.h"
+#include "draw.h"
+#include "communication.h"
+#include "common.h"
+#include "config.h"

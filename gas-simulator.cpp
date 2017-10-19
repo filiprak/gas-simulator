@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "gas-simulator.h"
 
+
 #define MAX_LOADSTRING 100
 
 // Global Variables:
@@ -17,6 +18,14 @@ BOOL				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
+
+GasContainerType app_type;
+
+
+void showUsage() {
+	MessageBox(NULL, L"Usage: command <l -left / r - right>", L"Error", MB_OK);
+}
+
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPTSTR    lpCmdLine,
@@ -28,6 +37,31 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
  	// TODO: Place code here.
 	MSG msg;
 	HACCEL hAccelTable;
+
+	// cmd args
+	LPWSTR *szArgList;
+	int argCount;
+
+	szArgList = CommandLineToArgvW(GetCommandLine(), &argCount);
+	if (szArgList == NULL)
+	{
+		MessageBox(NULL, L"Unable to parse command line", L"Error", MB_OK);
+		return 0;
+	}
+	if (argCount < 2)
+	{
+		showUsage();
+		return 0;
+	}
+	if (lstrcmp(szArgList[1], L"r") == 0)
+		app_type = Right;
+	else if (lstrcmp(szArgList[1], L"l") == 0)
+		app_type = Left;
+	else
+	{
+		showUsage();
+		return 0;
+	}
 
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -106,9 +140,25 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    {
       return FALSE;
    }
+   if (app_type == Left) {
+	   SetWindowText(hWnd, L"gas-simulator (left)");
+	   SetWindowPos(hWnd, HWND_TOP, 50, 50, 500, 500, SWP_NOOWNERZORDER);
+   }
+   if (app_type == Right) {
+	   SetWindowText(hWnd, L"gas-simulator (right)");
+	   SetWindowPos(hWnd, HWND_TOP, 550, 50, 500, 500, SWP_NOOWNERZORDER);
+   }
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
+   SetTimer(hWnd, 1, 25, NULL);
+
+   RECT rect;
+   GetClientRect(hWnd, &rect);
+   initGasContainer(app_type, 100, 10.0, (float)rect.right * PIXEL_SIZE, (float)rect.bottom * PIXEL_SIZE);
+
+   // register messages
+   registerMessages();
 
    return TRUE;
 }
@@ -127,7 +177,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
+	HBITMAP bitmap;
 	HDC hdc;
+	HDC hdcMem;
+
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+
+	if (message == MSG_FROM_LEFT && app_type == Right) {
+		DebugLog("MSG_FROM_LEFT: pos[%d, %d], vec[%d, %d]\n",
+			(short)HIWORD(wParam),
+			(short)LOWORD(wParam),
+			(short)HIWORD(lParam),
+			(short)LOWORD(lParam));
+
+		float radius = (float)(short)HIWORD(wParam) / 10.0;
+		vec2 pos = vec2(radius, (short)LOWORD(wParam));
+		vec2 vel = vec2((float) ((short)HIWORD(lParam)) / 10.0, (float) ((short)LOWORD(lParam)) / 10.0);
+		addParticle(pos, vel, radius, Inside);
+	}
+	if (message == MSG_FROM_RIGHT && app_type == Left) {
+		DebugLog("MSG_FROM_RIGHT: pos[%d, %d], vec[%d, %d]\n",
+			(short)HIWORD(wParam),
+			(short)LOWORD(wParam),
+			(short)HIWORD(lParam),
+			(short)LOWORD(lParam));
+
+		float radius = (float)(short)HIWORD(wParam) / 10.0;
+		vec2 pos = vec2(gas_container.width - radius, (short)LOWORD(wParam));
+		vec2 vel = vec2((float)((short)HIWORD(lParam)) / 10.0, (float)((short)LOWORD(lParam)) / 10.0);
+		addParticle(pos, vel, radius, Inside);
+	}
 
 	switch (message)
 	{
@@ -147,9 +227,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 		break;
+
+	case WM_TIMER:
+	{
+		RECT rect;
+		GetClientRect(hWnd, &rect);
+		InvalidateRect(hWnd, NULL, FALSE);
+		updateGasContainerSize((float)rect.right * PIXEL_SIZE, (float)rect.bottom * PIXEL_SIZE);
+		// run gas simulation
+		runGasSimulation();
+	}
+	break;
+
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
-		// TODO: Add any drawing code here...
+
+		RECT rect;
+		GetClientRect(hWnd, &rect);
+		hdcMem = CreateCompatibleDC(hdc);
+		bitmap = CreateCompatibleBitmap(hdcMem, rect.right, rect.bottom);
+		
+		SelectObject(hdcMem, bitmap);
+
+		SelectObject(hdcMem, GetStockObject(BLACK_BRUSH));
+
+		FillRect(hdcMem, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
+		drawGasContainer(hdcMem);
+
+		BitBlt(hdc, 0, 0, rect.right, rect.bottom, hdcMem, 0, 0, SRCCOPY);
+		
+		DeleteObject(bitmap);
+		DeleteDC(hdcMem);
 		EndPaint(hWnd, &ps);
 		break;
 	case WM_DESTROY:
@@ -179,4 +287,13 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 	return (INT_PTR)FALSE;
+}
+
+void DebugLog(const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	char line[128];
+	vsprintf(line, format, args);
+	OutputDebugStringA(line);
+	va_end(args);
 }
