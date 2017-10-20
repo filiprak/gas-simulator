@@ -154,7 +154,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    UpdateWindow(hWnd);
    SetTimer(hWnd, 1, REFRESH_INTERVAL, NULL);
 
-      // register messages
+   // register messages
    registerMessages();
 
    // check screen resolution
@@ -195,31 +195,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	RECT rect;
 	GetClientRect(hWnd, &rect);
 
+	// handle particle enter messages
 	if (message == MSG_FROM_LEFT && app_type == Right) {
-		/*DebugLog("MSG_FROM_LEFT: pos[%d, %d], vec[%d, %d]\n",
-			(short)HIWORD(wParam),
-			(short)LOWORD(wParam),
-			(short)HIWORD(lParam),
-			(short)LOWORD(lParam));*/
-
-		float radius = (float)(short)HIWORD(wParam) / 10.0;
-		vec2 pos = vec2(radius, (short)LOWORD(wParam));
-		vec2 vel = vec2((float) ((short)HIWORD(lParam)) / 10.0, (float) ((short)LOWORD(lParam)) / 10.0);
-		addParticle(pos, vel, radius, Inside);
+		handleMsgFromLeft(wParam, lParam);
+		return 0;
 	}
 	if (message == MSG_FROM_RIGHT && app_type == Left) {
-		/*DebugLog("MSG_FROM_RIGHT: pos[%d, %d], vec[%d, %d]\n",
-			(short)HIWORD(wParam),
-			(short)LOWORD(wParam),
-			(short)HIWORD(lParam),
-			(short)LOWORD(lParam));*/
-
-		float radius = (float)(short)HIWORD(wParam) / 10.0;
-		vec2 pos = vec2(gas_container.width - radius, (short)LOWORD(wParam));
-		vec2 vel = vec2((float)((short)HIWORD(lParam)) / 10.0, (float)((short)LOWORD(lParam)) / 10.0);
-		addParticle(pos, vel, radius, Inside);
+		handleMsgFromRight(wParam, lParam);
+		return 0;
 	}
 
+	// handle rest of messages
 	switch (message)
 	{
 	case WM_COMMAND:
@@ -249,24 +235,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	break;
 
 	case WM_PAINT:
+		// double buffering
 		hdc = BeginPaint(hWnd, &ps);
 		hdcMem = CreateCompatibleDC(hdc);
 
+		// create and clear bitmap
 		bitmap = CreateCompatibleBitmap(hdcMem, rect.right, rect.bottom);
 		SelectObject(hdcMem, bitmap);
 		FillRect(hdcMem, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
+
+		// set map mode for gas particles
 		SetMapMode(hdcMem, MM_LOMETRIC);
 		SetViewportOrgEx(hdcMem, 0, rect.bottom, NULL);
 		
-		//DebugLog("Rect: left: %d, top: %d, right: %d, bottom: %d\n", rect.left, rect.top, rect.right, rect.bottom);
-		
-
-		//SelectObject(hdc, GetStockObject(BLACK_BRUSH));
-		
+		// paint gas particles
 		SelectObject(hdcMem, GetStockObject(BLACK_BRUSH));
-		//Ellipse(hdcMem, 0, 0, rect.right * 2, rect.bottom * 2);
 		drawGasContainer(hdcMem);
 
+		// adjust bitmap
 		StretchBlt(hdc, 0, 0, rect.right, rect.bottom, hdcMem, 0, 0,
 			rect.right * mm_per_pixelX10, rect.bottom * mm_per_pixelX10, SRCCOPY);
 		

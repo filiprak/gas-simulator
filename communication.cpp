@@ -19,3 +19,17 @@ void notifyParticleEnter(UINT msg_type, vec2 pos, vec2 vel, float radius) {
 	SendMessageCallback(HWND_BROADCAST, msg_type, dwpos, dwvel, NULL, NULL);
 	static int i = 0;
 }
+
+void handleMsgFromLeft(WPARAM wParam, LPARAM lParam) {
+	float radius = (float)(short)HIWORD(wParam) / 10.0;
+	vec2 pos = vec2(radius, (short)LOWORD(wParam));
+	vec2 vel = vec2((float)((short)HIWORD(lParam)) / 10.0, (float)((short)LOWORD(lParam)) / 10.0);
+	addParticle(pos, vel, radius, Inside);
+}
+
+void handleMsgFromRight(WPARAM wParam, LPARAM lParam) {
+	float radius = (float)(short)HIWORD(wParam) / 10.0;
+	vec2 pos = vec2(gas_container.width - radius, (short)LOWORD(wParam));
+	vec2 vel = vec2((float)((short)HIWORD(lParam)) / 10.0, (float)((short)LOWORD(lParam)) / 10.0);
+	addParticle(pos, vel, radius, Inside);
+}

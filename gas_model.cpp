@@ -87,32 +87,40 @@ void runGasSimulation() {
 	std::vector<Particle> next_state;
 
 	for (int i = 0; i < gas_container.particles.size(); ++i) {
+		// take copy of particle from previous state
 		Particle particle_copy = gas_container.particles[i];
+
+		// check particle collisions
 		bounceParticle(particle_copy);
+
+		// move single particle
 		particle_copy.position += particle_copy.velocity;
+
+		// take only inside particles
 		if (particle_copy.state != Outside)
 			next_state.push_back(particle_copy);
 	}
+	// swap state
 	gas_container.particles.swap(next_state);
+	// particles energy loss
 	slowParticles();
 }
 
 void bounceParticle(Particle& p) {
-	//DebugLog("p: [%f, %f] v[%f, %f]\n", p.position.x, p.position.y, p.velocity.x, p.velocity.y);
+
+	// bounce with another particles
 	for (int i = 0; i < gas_container.particles.size(); ++i) {
 		Particle& collis_particle = gas_container.particles[i];
 		if (p.id == collis_particle.id)
 			continue;
 		
 		vec2 collis_vec = p.position - collis_particle.position;
-		//DebugLog("length: %f, radius_sum: %f\n", length(collis_vec), p.radius + collis_particle.radius);
 		if (length(collis_vec) <= p.radius + collis_particle.radius) {
 			p.velocity += 5.0f * normalize(collis_vec);
-
-			//DebugLog("collision dot1=%f, dot2=%f, diff: %f * [%f, %f]\n", dot1, dot2, diff, collis_vec.x, collis_vec.y);
 		}
 	}
 
+	// bounce with gas container bounds
 	bool sharedStateChanged = setParticleState(p);
 	
 	if (p.position.x > gas_container.width - p.radius) {
