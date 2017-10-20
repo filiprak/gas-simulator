@@ -16,7 +16,6 @@ void notifyParticleEnter(UINT msg_type, vec2 pos, vec2 vel, float radius) {
 	DWORD dwpos = (0xffff0000 & ((short)(radius * 10.0) << 16)) | (0x0000ffff & (short)pos.y);
 	DWORD dwvel = (0xffff0000 & ((short)(vel.x * 10.0) << 16)) | (0x0000ffff & (short)(vel.y * 10.0));
 
-	SendMessage(HWND_BROADCAST, msg_type, dwpos, dwvel);
+	SendMessageCallback(HWND_BROADCAST, msg_type, dwpos, dwvel, NULL, NULL);
 	static int i = 0;
-	DebugLog("Sended message %d\n", i++);
 }

@@ -20,7 +20,7 @@ void initGasContainer(GasContainerType type, int p_num = 0, float p_radius = 0.0
 
 	srand(static_cast <unsigned> (time(0)));
 	
-	int part_per_width = (int)floor(width / (3 * p_radius));
+	int part_per_width = (int)floor(width / (2.5 * p_radius));
 
 	vec2 last_pos = vec2(p_radius, p_radius);
 	// init particles
@@ -35,7 +35,7 @@ void initGasContainer(GasContainerType type, int p_num = 0, float p_radius = 0.0
 		float vy = rand_float(-INITIAL_VELOCITY_MAX, INITIAL_VELOCITY_MAX);
 
 		vec2 vel = vec2(vx, vy);
-		vec2 pos = vec2(column * 3 * p_radius + 2 * p_radius, row * 3 * p_radius +  2 * p_radius);
+		vec2 pos = vec2(column * 2.5 * p_radius + 2.5 * p_radius, row * 2.5 * p_radius +  2.5 * p_radius);
 		gas_container.particles.push_back(createParticle(p_radius, pos, vel, i));
 		column++;
 	}
@@ -94,7 +94,7 @@ void runGasSimulation() {
 		if (particle_copy.state != Outside)
 			next_state.push_back(particle_copy);
 	}
-	gas_container.particles = next_state;
+	gas_container.particles.swap(next_state);
 	slowParticles();
 }
 
@@ -108,7 +108,7 @@ void bounceParticle(Particle& p) {
 		vec2 collis_vec = p.position - collis_particle.position;
 		//DebugLog("length: %f, radius_sum: %f\n", length(collis_vec), p.radius + collis_particle.radius);
 		if (length(collis_vec) <= p.radius + collis_particle.radius) {
-			p.velocity += /*abs(diff) * */normalize(collis_vec);
+			p.velocity += 5.0f * normalize(collis_vec);
 
 			//DebugLog("collision dot1=%f, dot2=%f, diff: %f * [%f, %f]\n", dot1, dot2, diff, collis_vec.x, collis_vec.y);
 		}

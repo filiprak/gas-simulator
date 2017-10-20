@@ -20,6 +20,7 @@ INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
 
 GasContainerType app_type;
+float mm_per_pixelX10;
 
 
 void showUsage() {
@@ -151,14 +152,24 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
-   SetTimer(hWnd, 1, 25, NULL);
+   SetTimer(hWnd, 1, REFRESH_INTERVAL, NULL);
 
+      // register messages
+   registerMessages();
+
+   // check screen resolution
+   HDC screen = GetDC(NULL);
+   int hSize = GetDeviceCaps(screen, HORZSIZE);
+   int hRes = GetDeviceCaps(screen, HORZRES);
+   mm_per_pixelX10 = 10 * (float)hSize / hRes;   // millimeter per pixel
+
+   // init particle gas container
    RECT rect;
    GetClientRect(hWnd, &rect);
-   initGasContainer(app_type, 100, 10.0, (float)rect.right * PIXEL_SIZE, (float)rect.bottom * PIXEL_SIZE);
-
-   // register messages
-   registerMessages();
+   initGasContainer(app_type,
+	   INITIAL_PARTICLES_NUM,
+	   PARTICLE_RADIUS,
+	   (float)rect.right * mm_per_pixelX10, (float)rect.bottom * mm_per_pixelX10);
 
    return TRUE;
 }
@@ -185,11 +196,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	GetClientRect(hWnd, &rect);
 
 	if (message == MSG_FROM_LEFT && app_type == Right) {
-		DebugLog("MSG_FROM_LEFT: pos[%d, %d], vec[%d, %d]\n",
+		/*DebugLog("MSG_FROM_LEFT: pos[%d, %d], vec[%d, %d]\n",
 			(short)HIWORD(wParam),
 			(short)LOWORD(wParam),
 			(short)HIWORD(lParam),
-			(short)LOWORD(lParam));
+			(short)LOWORD(lParam));*/
 
 		float radius = (float)(short)HIWORD(wParam) / 10.0;
 		vec2 pos = vec2(radius, (short)LOWORD(wParam));
@@ -197,11 +208,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		addParticle(pos, vel, radius, Inside);
 	}
 	if (message == MSG_FROM_RIGHT && app_type == Left) {
-		DebugLog("MSG_FROM_RIGHT: pos[%d, %d], vec[%d, %d]\n",
+		/*DebugLog("MSG_FROM_RIGHT: pos[%d, %d], vec[%d, %d]\n",
 			(short)HIWORD(wParam),
 			(short)LOWORD(wParam),
 			(short)HIWORD(lParam),
-			(short)LOWORD(lParam));
+			(short)LOWORD(lParam));*/
 
 		float radius = (float)(short)HIWORD(wParam) / 10.0;
 		vec2 pos = vec2(gas_container.width - radius, (short)LOWORD(wParam));
@@ -230,31 +241,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_TIMER:
 	{
-		RECT rect;
-		GetClientRect(hWnd, &rect);
-		InvalidateRect(hWnd, NULL, FALSE);
-		updateGasContainerSize((float)rect.right * PIXEL_SIZE, (float)rect.bottom * PIXEL_SIZE);
+		updateGasContainerSize((float)rect.right * mm_per_pixelX10, (float)rect.bottom * mm_per_pixelX10);
 		// run gas simulation
 		runGasSimulation();
+		InvalidateRect(hWnd, NULL, FALSE);
 	}
 	break;
 
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
-
-		RECT rect;
-		GetClientRect(hWnd, &rect);
 		hdcMem = CreateCompatibleDC(hdc);
+
 		bitmap = CreateCompatibleBitmap(hdcMem, rect.right, rect.bottom);
-		
 		SelectObject(hdcMem, bitmap);
-
-		SelectObject(hdcMem, GetStockObject(BLACK_BRUSH));
-
 		FillRect(hdcMem, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
+		SetMapMode(hdcMem, MM_LOMETRIC);
+		SetViewportOrgEx(hdcMem, 0, rect.bottom, NULL);
+		
+		//DebugLog("Rect: left: %d, top: %d, right: %d, bottom: %d\n", rect.left, rect.top, rect.right, rect.bottom);
+		
+
+		//SelectObject(hdc, GetStockObject(BLACK_BRUSH));
+		
+		SelectObject(hdcMem, GetStockObject(BLACK_BRUSH));
+		//Ellipse(hdcMem, 0, 0, rect.right * 2, rect.bottom * 2);
 		drawGasContainer(hdcMem);
 
-		BitBlt(hdc, 0, 0, rect.right, rect.bottom, hdcMem, 0, 0, SRCCOPY);
+		StretchBlt(hdc, 0, 0, rect.right, rect.bottom, hdcMem, 0, 0,
+			rect.right * mm_per_pixelX10, rect.bottom * mm_per_pixelX10, SRCCOPY);
 		
 		DeleteObject(bitmap);
 		DeleteDC(hdcMem);
