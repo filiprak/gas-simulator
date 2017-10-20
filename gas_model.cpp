@@ -79,8 +79,7 @@ Particle createParticle(float r, vec2 init_pos, vec2 vel, int id) {
 
 void slowParticles() {
 	for (int i = 0; i < gas_container.particles.size(); ++i) {
-		gas_container.particles[i].velocity *= 0.999;
-
+		gas_container.particles[i].velocity *= ENERGY_LEFT_PER_ITER;
 	}
 }
 
